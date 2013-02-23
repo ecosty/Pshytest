@@ -1,0 +1,5 @@
+name = pshytest_helper
+description = Pshytest Custom Helper Module.
+core = 7.x
+
+files[] = pshytest_helper.module

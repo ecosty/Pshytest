@@ -1,0 +1,110 @@
+<?php
+
+  require_once drupal_get_path('module', 'pshytest_helper') . '/alters.inc';
+  require_once drupal_get_path('module', 'pshytest_helper') . '/core.inc';
+  require_once drupal_get_path('module', 'pshytest_helper') . '/views.inc';
+  
+  /*
+   * Función que se ejecuta al iniciar la aplicación.
+   */
+  function pshytest_helper_init() {
+      
+  }
+
+  /*
+   * Función que recoge el código del evento del usuario y lo pasas como parámetro al listado de examenes. 
+   */
+  function pshytest_helper_views_pre_view(&$view, &$display_id, &$args) {
+    global $user;
+    $uid = user_load($user->uid);
+    $profile = profile2_load_by_user($uid);
+    
+    $codigo_evento_user = $profile['main']->field_codigo_evento_pertenece['und'][0]['value'];
+    
+    if ($view->name == 'listado_examenes' && $display_id == 'page_1') {
+       $view->set_arguments(array($codigo_evento_user));
+    }
+  }
+    
+  /*
+   * Función que recoge todos los resultados del examen de un aspirante.
+   */
+  function pshytest_helper_return_test_results($uid, $nid) {
+    $result = db_query('SELECT 
+      `webform_submissions`.nid,
+      `webform_submissions`.sid,
+      `webform_submitted_data`.cid,
+      `webform_component`.name,
+      `webform_submitted_data`.data
+    FROM 
+      `webform_submissions`,
+      `webform_submitted_data`,
+      `webform_component`
+    WHERE
+      `webform_submissions`.sid = `webform_submitted_data`.sid AND
+      `webform_component`.cid = `webform_submitted_data`.cid AND
+      `webform_component`.nid = `webform_submitted_data`.nid AND
+      `webform_submissions`.uid = ' . $uid . ' AND
+      `webform_submissions`.nid = ' . $nid .
+    ' ORDER BY `webform_submissions`.uid');
+    
+    $var = $result->fetchAll();
+    
+    $variables = array(
+      'header' => array(),
+      'rows' => array(),
+      'attributes' => array(),
+      'caption' => 'RESULTADOS DEL EXAMEN',
+      'colgroups' => array(),
+      'sticky' => 'sticky',
+      'empty' => 'There are no rows',
+    );
+    
+    
+    // Row with attributes on the row and some of its cells.
+      $options = array(
+        'data' => array(
+            'Cell 1',
+            array(
+                'data'    => 'Cell 2', 
+                'colspan' => 2
+                )
+            ), 
+          'class' => array('funky')
+      );
+    
+    $variables['header'] = array(
+      'Codigo de Examen',
+      'Codigo de Sumisión',
+      'Número de Pregunta',
+      'Descripcion de Pregunta',
+      'Resultado',
+    );
+      
+    foreach ($var as $record) {
+      $options = array(
+        'data' => array(
+          $record->nid,
+          $record->sid,
+          $record->cid,
+          $record->name,
+          $record->data,
+        ),
+      );
+
+      // Push the image tag onto the items array
+      $variables['rows'][] = $options;
+    }
+    
+    return theme_table($variables);
+  }
+  
+  
+  function pshytest_helper_return_members_tests($uid) {
+  
+    $view = views_get_view('listado_examenes_aspirante', 'block_1');
+    $view->set_arguments(array($uid));
+    $view->execute();
+
+    return $view->preview('block_1');
+  }
